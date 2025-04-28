@@ -1,0 +1,14 @@
+target/
+*.log
+*.log.*
+*.log.*.*
+*.log.*.*.*
+*.log.*.*.*.*
+*.log.*.*.*.*.*
+.vscode/
+.idea/
+*.iml
+*.xml
+*.properties
+*.yml
+*.yaml
