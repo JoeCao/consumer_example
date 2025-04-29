@@ -18,11 +18,11 @@ public class AMQPConsumer {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     // MQ连接信息
-    private static final String HOST = "xxx.xxx.xxx.xxx";
+    private static final String HOST = "121.40.253.224";
     private static final int PORT = 5672;
-    private static final String USERNAME = "ZHiGPqEVwC";
-    private static final String PASSWORD = "JyAfWnXoXR";
-    private static final String QUEUE_NAME = "queue_NUWiXpCwlE";
+    private static final String USERNAME = "wbfFUieAoR";
+    private static final String PASSWORD = "ctuXCKwyMK";
+    private static final String QUEUE_NAME = "queue_GPdMhwpisB";
 
     public static void main(String[] args) {
         ConnectionFactory factory = new ConnectionFactory();
