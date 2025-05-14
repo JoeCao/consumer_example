@@ -21,9 +21,9 @@ public class AMQPConsumer {
     // MQ连接信息
     private static final String HOST = "xxx.xxx.xxx.xxx";
     private static final int PORT = 5672;
-    private static final String USERNAME = "wbfFUieAoR";
-    private static final String PASSWORD = "ctuXC*****";
-    private static final String QUEUE_NAME = "queue_GPdMhwpisB";
+    private static final String USERNAME = "OEADFoxsxT";
+    private static final String PASSWORD = "qVAmrV***";
+    private static final String QUEUE_NAME = "queue_tHJFOvFkhR";
 
     public static void main(String[] args) {
         ConnectionFactory factory = new ConnectionFactory();
@@ -78,11 +78,32 @@ public class AMQPConsumer {
                 boolean isBinary;
                 
                 if (contentType != null) {
-                    // 如果有contentType，依据contentType判断
-                    isBinary = isBinaryContent(contentType);
+                    // 根据ContentType判断
+                    if (contentType.startsWith("text/")) {
+                        // 文本类型
+                        logger.info("ContentType: {} (文本类型)", contentType);
+                        isBinary = false;
+                    } else if (contentType.startsWith("application/octet-stream")) {
+                        // application/octet-stream需要特别处理，可能是文本也可能是二进制
+                        logger.info("ContentType: {} (需要进一步分析内容)", contentType);
+                        // 使用内容分析
+                        isBinary = !isTextContent(messageBytes);
+                    } else if (contentType.startsWith("application/binary") ||
+                              contentType.startsWith("image/") || 
+                              contentType.startsWith("audio/") || 
+                              contentType.startsWith("video/")) {
+                        // 明确的二进制类型
+                        logger.info("ContentType: {} (明确的二进制类型)", contentType);
+                        isBinary = true;
+                    } else {
+                        // 其他类型，使用内容检测
+                        logger.info("ContentType: {} (未知类型，将分析内容)", contentType);
+                        isBinary = !isTextContent(messageBytes);
+                    }
                 } else {
-                    // 如果没有contentType，自动检测数据类型
-                    isBinary = detectBinaryContent(messageBytes);
+                    // ContentType为空，使用内容检测
+                    logger.info("ContentType为空，将分析内容");
+                    isBinary = !isTextContent(messageBytes);
                 }
                 
                 // 根据内容类型处理消息
@@ -90,9 +111,9 @@ public class AMQPConsumer {
                     // 二进制内容处理
                     processBinaryMessage(messageBytes, messageId, topic, generateTime);
                 } else {
-                    // 默认当作文本处理
+                    // 文本内容处理
                     String originalMessage = new String(messageBytes, StandardCharsets.UTF_8);
-                    logger.info("接收到原始消息: '{}'", originalMessage);
+                    logger.info("接收到文本消息: '{}'", originalMessage);
                     processTextMessage(originalMessage, messageId, topic, generateTime);
                 }
             };
@@ -121,6 +142,7 @@ public class AMQPConsumer {
      */
     private static boolean isBinaryContent(String contentType) {
         if (contentType == null) {
+            logger.info("contentType为空");
             return false;
         }
         
@@ -195,20 +217,25 @@ public class AMQPConsumer {
         // 记录二进制数据大小
         logger.info("接收到二进制数据, 大小: {} 字节", messageBytes.length);
         
-        // 可以将二进制数据转换为Base64显示
-        String base64Data = Base64.getEncoder().encodeToString(messageBytes);
-        // 只显示部分内容避免日志过大
-        String previewData = base64Data.length() > 100 ? base64Data.substring(0, 100) + "..." : base64Data;
-        logger.info("二进制数据(Base64前100字节): {}", previewData);
-        
         // 尝试检测常见的二进制格式
         detectBinaryFormat(messageBytes);
         
-        // 可以在这里添加处理特定二进制格式的代码
+        // 可以直接处理原始的二进制数据，不需要Base64编码
         // 例如：
         // 1. 保存为文件
         // 2. 解析特定的二进制协议
         // 3. 转发到其他处理单元
+        
+        // 如需调试预览二进制内容，可以显示前几个字节的十六进制值
+        StringBuilder hexPreview = new StringBuilder();
+        int previewSize = Math.min(messageBytes.length, 20); // 只显示前20个字节
+        for (int i = 0; i < previewSize; i++) {
+            hexPreview.append(String.format("%02X ", messageBytes[i]));
+        }
+        if (messageBytes.length > 20) {
+            hexPreview.append("...");
+        }
+        logger.info("二进制数据预览(十六进制): {}", hexPreview.toString());
     }
     
     /**
@@ -303,5 +330,44 @@ public class AMQPConsumer {
             // 不是有效的JSON，显示为普通文本
             logger.info("消息不是有效的JSON格式，以纯文本显示:\n{}", processedMessage);
         }
+    }
+
+    /**
+     * 判断内容是否为文本数据
+     * @param data 待检测的字节数组
+     * @return 是否可能是文本内容
+     */
+    private static boolean isTextContent(byte[] data) {
+        // 如果数据为空，默认当作文本处理
+        if (data == null || data.length == 0) {
+            return true;
+        }
+        
+        // 尝试作为JSON解析
+        if (isValidJson(data)) {
+            logger.info("检测到有效的JSON内容");
+            return true;
+        }
+        
+        // 检查是否全部为可打印ASCII字符或常见控制字符
+        int textCharCount = 0;
+        for (byte b : data) {
+            // 可打印ASCII字符(32-126)或常见控制字符(\n \r \t)
+            if ((b >= 32 && b <= 126) || b == 9 || b == 10 || b == 13) {
+                textCharCount++;
+            }
+        }
+        
+        // 如果85%以上的字符都是可打印字符或常见控制字符，可能是文本
+        double textRatio = (double) textCharCount / data.length;
+        boolean isText = textRatio > 0.85;
+        
+        if (isText) {
+            logger.info("基于字符分析，判断可能是文本内容 (文本字符比例: {}%)", String.format("%.2f", textRatio * 100));
+        } else {
+            logger.info("基于字符分析，判断可能是二进制内容 (非文本字符比例: {}%)", String.format("%.2f", (1 - textRatio) * 100));
+        }
+        
+        return isText;
     }
 } 
